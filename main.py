@@ -52,15 +52,6 @@ def display_sidebar():
         help="支持6位数字股票代码，系统会自动识别交易市场"
     )
     
-    # 分析天数选择
-    days = st.sidebar.slider(
-        "分析天数",
-        min_value=10,
-        max_value=50,
-        value=config.MAX_TRADING_DAYS,
-        help="选择要分析的最近交易日天数"
-    )
-    
     # 开始分析按钮
     analyze_button = st.sidebar.button(
         "🚀 开始分析",
@@ -80,7 +71,7 @@ def display_sidebar():
         st.sidebar.error(f"❌ 缺少配置: {', '.join(missing)}")
         st.sidebar.info("请在.env文件中配置相关参数")
     
-    return stock_code, days, analyze_button
+    return stock_code, analyze_button
 
 
 def fetch_and_process_data(stock_code: str, days: int) -> Optional[pd.DataFrame]:
@@ -375,7 +366,18 @@ def display_raw_data_section(df: pd.DataFrame):
     with st.expander("📋 查看Markdown格式数据", expanded=False):
         try:
             markdown_table = DataProcessor.generate_markdown_table(df)
-            st.code(markdown_table, language="markdown")
+            
+            # 创建两个标签页：表格视图和源码视图
+            tab1, tab2 = st.tabs(["📊 表格视图", "📝 Markdown源码"])
+            
+            with tab1:
+                # 渲染为表格
+                st.markdown(markdown_table)
+            
+            with tab2:
+                # 显示Markdown源码
+                st.code(markdown_table, language="markdown")
+                
         except Exception as e:
             st.error(f"生成Markdown数据失败: {str(e)}")
 
@@ -389,7 +391,7 @@ def main():
     display_header()
     
     # 显示侧边栏并获取用户输入
-    stock_code, days, analyze_button = display_sidebar()
+    stock_code, analyze_button = display_sidebar()
     
     # 处理分析请求
     if analyze_button and stock_code:
@@ -398,8 +400,8 @@ def main():
             clean_code, market = StockDataFetcher.validate_stock_code(stock_code)
             st.session_state.current_stock = (clean_code, market)
             
-            # 获取并处理数据
-            processed_data = fetch_and_process_data(clean_code, days)
+            # 获取并处理数据，使用默认30个交易日
+            processed_data = fetch_and_process_data(clean_code, config.MAX_TRADING_DAYS)
             
             if processed_data is not None:
                 st.session_state.current_data = processed_data
