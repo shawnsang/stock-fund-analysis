@@ -194,7 +194,7 @@ class DataProcessor:
     @staticmethod
     def generate_markdown_table(df: pd.DataFrame) -> str:
         """
-        生成Markdown格式的数据表格
+        生成Markdown格式的数据表格 - 拆分为多个子表以提高LLM推理准确性
         
         Args:
             df: 处理后的数据DataFrame
@@ -205,37 +205,59 @@ class DataProcessor:
         logger.info("生成Markdown表格")
         
         try:
-            # 选择要显示的列
-            display_columns = ['日期', '收盘价', '涨跌幅']
-            
-            # 添加净额列及其均线
-            for base_col in DataProcessor.AMOUNT_COLUMNS:
-                if base_col in df.columns:
-                    display_columns.extend([
-                        base_col,
-                        f'{base_col}-MA3',
-                        f'{base_col}-MA5', 
-                        f'{base_col}-MA10'
-                    ])
-            
-            # 添加净占比列
-            for ratio_col in DataProcessor.RATIO_COLUMNS:
-                if ratio_col in df.columns:
-                    display_columns.append(ratio_col)
-            
-            # 过滤存在的列
-            available_columns = [col for col in display_columns if col in df.columns]
-            display_df = df[available_columns].copy()
-            
             # 格式化日期
+            display_df = df.copy()
             if '日期' in display_df.columns:
                 display_df['日期'] = display_df['日期'].dt.strftime('%Y-%m-%d')
             
-            # 生成Markdown表格
-            markdown_table = display_df.to_markdown(index=False, floatfmt='.2f')
+            markdown_sections = []
+            
+            # 1. 基础价格信息表
+            basic_columns = ['日期', '收盘价', '涨跌幅']
+            if all(col in display_df.columns for col in basic_columns):
+                basic_table = display_df[basic_columns].to_markdown(index=False, floatfmt='.2f')
+                markdown_sections.append("## 基础价格信息\n" + basic_table)
+            
+            # 2. 主力资金流向表（包含MA均线）
+            main_columns = ['日期', '主力净流入-净额', '主力净流入-净额-MA3', '主力净流入-净额-MA5', '主力净流入-净额-MA10']
+            available_main_columns = [col for col in main_columns if col in display_df.columns]
+            if len(available_main_columns) > 1:
+                main_table = display_df[available_main_columns].to_markdown(index=False, floatfmt='.2f')
+                markdown_sections.append("## 主力资金流向及均线\n" + main_table)
+            
+            # 3. 超大单资金流向表
+            super_large_columns = ['日期', '超大单净流入-净额', '超大单净流入-净额-MA3', '超大单净流入-净额-MA5', '超大单净流入-净额-MA10']
+            available_super_large_columns = [col for col in super_large_columns if col in display_df.columns]
+            if len(available_super_large_columns) > 1:
+                super_large_table = display_df[available_super_large_columns].to_markdown(index=False, floatfmt='.2f')
+                markdown_sections.append("## 超大单资金流向及均线\n" + super_large_table)
+            
+            # 4. 大单资金流向表
+            large_columns = ['日期', '大单净流入-净额', '大单净流入-净额-MA3', '大单净流入-净额-MA5', '大单净流入-净额-MA10']
+            available_large_columns = [col for col in large_columns if col in display_df.columns]
+            if len(available_large_columns) > 1:
+                large_table = display_df[available_large_columns].to_markdown(index=False, floatfmt='.2f')
+                markdown_sections.append("## 大单资金流向及均线\n" + large_table)
+            
+            # 5. 中单和小单资金流向表
+            medium_small_columns = ['日期', '中单净流入-净额', '中单净流入-净额-MA3', '中单净流入-净额-MA5', '中单净流入-净额-MA10',
+                                  '小单净流入-净额', '小单净流入-净额-MA3', '小单净流入-净额-MA5', '小单净流入-净额-MA10']
+            available_medium_small_columns = [col for col in medium_small_columns if col in display_df.columns]
+            if len(available_medium_small_columns) > 1:
+                medium_small_table = display_df[available_medium_small_columns].to_markdown(index=False, floatfmt='.2f')
+                markdown_sections.append("## 中单和小单资金流向及均线\n" + medium_small_table)
+            
+            # 6. 资金流向占比表
+            ratio_columns = ['日期'] + [col for col in DataProcessor.RATIO_COLUMNS if col in display_df.columns]
+            if len(ratio_columns) > 1:
+                ratio_table = display_df[ratio_columns].to_markdown(index=False, floatfmt='.2f')
+                markdown_sections.append("## 资金流向占比\n" + ratio_table)
+            
+            # 合并所有表格
+            final_markdown = "\n\n".join(markdown_sections)
             
             logger.info("Markdown表格生成完成")
-            return markdown_table
+            return final_markdown
             
         except Exception as e:
             logger.error(f"生成Markdown表格失败: {str(e)}")
