@@ -345,7 +345,7 @@ def display_llm_analysis(stock_code: str, market: str, df: pd.DataFrame):
             # 移除光标，显示最终结果
             analysis_container.markdown(analysis_text)
             
-        st.success("✅ AI分析完成")
+        st.info("📋 本分析报告由 AI 根据实时交易数据分析，存在分析不全面的情况，仅供参考，不做任何投资建议。")
         
     except Exception as e:
         st.error(f"❌ AI分析失败: {str(e)}")
