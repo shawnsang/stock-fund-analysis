@@ -4,6 +4,9 @@
 """
 
 import re
+import os
+import json
+from datetime import datetime, timedelta
 from typing import Optional, Tuple
 import pandas as pd
 import akshare as ak
@@ -14,6 +17,103 @@ logger = get_logger(__name__)
 
 class StockDataFetcher:
     """股票数据获取器"""
+    
+    # 缓存目录
+    CACHE_DIR = "cache"
+    STOCK_LIST_CACHE_FILE = os.path.join(CACHE_DIR, "stock_list_cache.json")
+    CACHE_EXPIRE_HOURS = 24  # 缓存24小时过期
+    
+    @classmethod
+    def _ensure_cache_dir(cls):
+        """确保缓存目录存在"""
+        if not os.path.exists(cls.CACHE_DIR):
+            os.makedirs(cls.CACHE_DIR)
+    
+    @classmethod
+    def _is_cache_valid(cls, cache_file: str) -> bool:
+        """检查缓存是否有效"""
+        if not os.path.exists(cache_file):
+            return False
+        
+        # 检查文件修改时间
+        file_time = datetime.fromtimestamp(os.path.getmtime(cache_file))
+        expire_time = datetime.now() - timedelta(hours=cls.CACHE_EXPIRE_HOURS)
+        
+        return file_time > expire_time
+    
+    @classmethod
+    def get_stock_list_with_cache(cls) -> pd.DataFrame:
+        """
+        获取沪深京A股实时行情数据（带缓存）
+        
+        Returns:
+            包含所有A股实时行情的DataFrame
+        """
+        try:
+            cls._ensure_cache_dir()
+            
+            # 检查缓存是否有效
+            if cls._is_cache_valid(cls.STOCK_LIST_CACHE_FILE):
+                logger.info("使用缓存的股票列表数据")
+                with open(cls.STOCK_LIST_CACHE_FILE, 'r', encoding='utf-8') as f:
+                    cache_data = json.load(f)
+                    return pd.DataFrame(cache_data['data'])
+            
+            # 缓存无效或不存在，重新获取数据
+            logger.info("获取最新的沪深京A股实时行情数据")
+            df = ak.stock_zh_a_spot_em()
+            
+            if df.empty:
+                raise ValueError("未获取到股票列表数据")
+            
+            # 保存到缓存
+            cache_data = {
+                'timestamp': datetime.now().isoformat(),
+                'data': df.to_dict('records')
+            }
+            
+            with open(cls.STOCK_LIST_CACHE_FILE, 'w', encoding='utf-8') as f:
+                json.dump(cache_data, f, ensure_ascii=False, indent=2)
+            
+            logger.info(f"成功获取并缓存 {len(df)} 只股票的实时行情数据")
+            return df
+            
+        except Exception as e:
+            logger.error(f"获取股票列表数据失败: {str(e)}")
+            raise
+    
+    @classmethod
+    def get_stock_name_by_code(cls, stock_code: str) -> Optional[str]:
+        """
+        根据股票代码获取股票名称
+        
+        Args:
+            stock_code: 股票代码
+            
+        Returns:
+            股票名称，如果未找到返回None
+        """
+        try:
+            # 标准化股票代码
+            clean_code, _ = cls.validate_stock_code(stock_code)
+            
+            # 获取股票列表
+            stock_df = cls.get_stock_list_with_cache()
+            
+            # 查找对应的股票名称
+            matched_stocks = stock_df[stock_df['代码'] == clean_code]
+            
+            if not matched_stocks.empty:
+                stock_name = matched_stocks.iloc[0]['名称']
+                logger.info(f"找到股票: {clean_code} -> {stock_name}")
+                return stock_name
+            else:
+                logger.warning(f"未找到股票代码 {clean_code} 对应的股票名称")
+                return None
+                
+        except Exception as e:
+            logger.error(f"获取股票名称失败: {str(e)}")
+            return None
     
     @staticmethod
     def detect_market(stock_code: str) -> str:

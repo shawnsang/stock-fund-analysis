@@ -104,7 +104,16 @@ def fetch_and_process_data(stock_code: str, days: int) -> Optional[pd.DataFrame]
 
 def display_data_charts(df: pd.DataFrame, stock_code: str):
     """显示数据图表"""
-    st.subheader(f"📊 {stock_code} 资金流分析")
+    # 获取股票名称
+    stock_name = StockDataFetcher.get_stock_name_by_code(stock_code)
+    
+    # 构建标题
+    if stock_name:
+        title = f"📊 {stock_name}（{stock_code}） 资金流分析"
+    else:
+        title = f"📊 {stock_code} 资金流分析"
+    
+    st.subheader(title)
     
     # 数据统计概览
     col1, col2, col3, col4 = st.columns(4)
@@ -318,7 +327,16 @@ def display_data_charts(df: pd.DataFrame, stock_code: str):
 
 def display_llm_analysis(stock_code: str, market: str, df: pd.DataFrame):
     """显示LLM分析结果"""
-    st.subheader("🤖 AI资金流分析")
+    # 获取股票名称
+    stock_name = StockDataFetcher.get_stock_name_by_code(stock_code)
+    
+    # 构建标题
+    if stock_name:
+        title = f"🤖 {stock_name}（{stock_code}） AI资金流分析"
+    else:
+        title = f"🤖 {stock_code} AI资金流分析"
+    
+    st.subheader(title)
     
     # 创建LLM客户端
     llm_client = create_llm_client()
