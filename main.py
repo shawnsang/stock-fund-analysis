@@ -147,7 +147,7 @@ def display_data_charts(df: pd.DataFrame, stock_code: str):
                 shared_xaxes=True,
                 subplot_titles=('收盘价格走势', '主力资金净流入趋势'),
                 vertical_spacing=0.08,
-                row_heights=[0.4, 0.6]
+                row_heights=[0.6, 0.4]
             )
             
             # 上图：收盘价格走势
@@ -198,6 +198,19 @@ def display_data_charts(df: pd.DataFrame, stock_code: str):
                         mode='lines',
                         name='MA5',
                         line=dict(color='blue', dash='dash', width=1.2)
+                    ),
+                    row=2, col=1
+                )
+            
+            # MA10 趋势线
+            if '主力净流入-净额-MA10' in df.columns:
+                fig.add_trace(
+                    go.Scatter(
+                        x=df['日期'],
+                        y=df['主力净流入-净额-MA10'],
+                        mode='lines',
+                        name='MA10',
+                        line=dict(color='gray', width=1.2)
                     ),
                     row=2, col=1
                 )
